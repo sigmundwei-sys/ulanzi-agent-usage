@@ -1,0 +1,65 @@
+name: Bug report
+description: Report a reproducible problem with the plugin.
+title: "[Bug]: "
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping improve Ulanzi Agent Usage.
+        Never include tokens, cookies, credential files, account exports, or unredacted logs.
+  - type: input
+    id: version
+    attributes:
+      label: Plugin version
+      placeholder: 3.0.0 or commit SHA
+    validations:
+      required: true
+  - type: input
+    id: host
+    attributes:
+      label: Ulanzi Studio and device
+      placeholder: Ulanzi Studio 3.0.11 on Windows 11; D200H
+    validations:
+      required: true
+  - type: dropdown
+    id: provider
+    attributes:
+      label: Provider/action
+      options:
+        - Claude Code
+        - Codex
+        - Cursor
+        - GitHub Copilot
+        - Kiro
+        - Antigravity
+        - OpenCode Go
+        - Other / plugin loading
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Reproduction steps
+      description: What did you do, and what did you expect to happen?
+      placeholder: |
+        1. Add ... action
+        2. Configure ...
+        3. Restart ...
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Redacted logs or screenshots
+      description: Remove secrets and account identifiers before posting.
+      render: text
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Safety checklist
+      options:
+        - label: I removed tokens, cookies, credential files, and private account data.
+          required: true
+        - label: I searched existing issues for duplicates.
+          required: true

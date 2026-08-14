@@ -1,0 +1,32 @@
+# Installed and generated dependencies
+node_modules/
+.npm-cache/
+dist/
+build/
+coverage/
+
+# Local credentials and provider configuration
+.env
+.env.*
+*.credentials.json
+secure-account-storage.key
+config.local.json
+opencode-go.json
+
+# Runtime logs, backups, and local diagnostics
+*.log
+*.bak
+*.pre-*
+KWDMLog/
+
+# Release artifacts
+*.zip
+*.zip.sha256
+
+# OS/editor files
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.idea/
+.vscode/

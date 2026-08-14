@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/sigmundwei-sys/ulanzi-agent-usage/security/advisories/new
+    about: Do not disclose credentials or security issues in a public issue.

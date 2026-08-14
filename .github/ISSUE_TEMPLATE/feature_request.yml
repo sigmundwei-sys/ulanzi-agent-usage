@@ -1,0 +1,43 @@
+name: Feature request
+description: Suggest an improvement or a new provider/action.
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Clear use cases and provider documentation help us evaluate requests quickly.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or use case
+      description: What would you like to do on the Deck that is not possible today?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: Describe the action, display, provider, or workflow you have in mind.
+    validations:
+      required: true
+  - type: dropdown
+    id: device
+    attributes:
+      label: Target device
+      options:
+        - D200
+        - D200H
+        - D200X
+        - Dial
+        - All devices
+        - Not device-specific
+    validations:
+      required: true
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Checklist
+      options:
+        - label: I searched existing issues and discussions.
+          required: true

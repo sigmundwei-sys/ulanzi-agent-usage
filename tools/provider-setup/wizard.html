@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ulanzi Agent Usage · 帳號匯入</title>
+  <style>
+    :root { color-scheme: dark; font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; }
+    body { margin: 0; min-height: 100vh; background: #10131a; color: #e8ecf4; }
+    main { width: min(900px, calc(100% - 32px)); margin: 42px auto; }
+    h1 { margin: 0 0 8px; font-size: 28px; }
+    .lead { color: #aeb8ca; margin: 0 0 24px; line-height: 1.6; }
+    .notice { padding: 13px 16px; border: 1px solid #2b3850; border-radius: 12px; background: #161d2a; color: #cbd7ed; margin-bottom: 18px; }
+    .notice strong { color: #fff; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; }
+    .card { border: 1px solid #2b3445; border-radius: 16px; background: #171b24; padding: 20px; box-shadow: 0 10px 28px #0003; }
+    .card h2 { margin: 0 0 8px; font-size: 20px; }
+    .meta { color: #aeb8ca; font-size: 14px; line-height: 1.65; min-height: 72px; }
+    .account { border: 1px solid #303d53; border-radius: 11px; padding: 12px; margin-top: 12px; background: #131923; }
+    .account p { margin: 3px 0; font-size: 14px; }
+    .account .muted { color: #aeb8ca; }
+    button { border: 0; border-radius: 9px; padding: 10px 14px; font-weight: 700; color: #08121d; background: #5eead4; cursor: pointer; margin-top: 12px; }
+    button:hover { background: #8af3df; }
+    button.secondary { color: #dbe5f7; background: #2a3548; }
+    button:disabled { cursor: wait; opacity: .55; }
+    #status { min-height: 24px; margin: 18px 0; color: #8af3df; }
+    #status.error { color: #ff9e9e; }
+    footer { margin-top: 24px; display: flex; gap: 10px; flex-wrap: wrap; }
+    .small { color: #8d9ab0; font-size: 12px; margin-top: 14px; line-height: 1.55; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Ulanzi Agent Usage 帳號匯入</h1>
+    <p class="lead">從已登入的 Cursor / Kiro 本機資料直接匯入，不需要手動複製 token 或編輯 JSON。</p>
+    <div class="notice"><strong>安全提示：</strong>這個頁面只在本機 <code>127.0.0.1</code> 開啟。原始 credential 只在本機程序記憶體中處理，不會回傳到頁面、寫進 plugin 或上傳網路。</div>
+    <div id="mode" class="notice">正在掃描本機帳號…</div>
+    <div class="grid">
+      <section class="card" id="cursor-card">
+        <h2>Cursor</h2>
+        <div class="meta" id="cursor-info">掃描中…</div>
+        <div id="cursor-account"></div>
+      </section>
+      <section class="card" id="kiro-card">
+        <h2>Kiro</h2>
+        <div class="meta" id="kiro-info">掃描中…</div>
+        <div id="kiro-accounts"></div>
+      </section>
+    </div>
+    <footer>
+      <button class="secondary" id="refresh">重新掃描</button>
+      <button class="secondary" id="close">關閉</button>
+    </footer>
+    <p class="small">匯入完成後，請完全退出並重新開啟 Ulanzi Studio，讓 plugin 讀到新的本機設定。</p>
+  </main>
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const status = (message, error = false) => {
+      const node = $('status');
+      if (!node) return;
+      node.textContent = message;
+      node.className = error ? 'error' : '';
+    };
+    const text = (tag, value, className) => {
+      const node = document.createElement(tag);
+      node.textContent = value || '';
+      if (className) node.className = className;
+      return node;
+    };
+    function button(label, provider, id) {
+      const node = document.createElement('button');
+      node.textContent = label;
+      node.addEventListener('click', () => importAccount(provider, id, node));
+      return node;
+    }
+    async function importAccount(provider, id, node) {
+      node.disabled = true;
+      status('正在匯入…');
+      try {
+        const response = await fetch('/api/import', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({provider, id})
+        });
+        const result = await response.json();
+        if (!response.ok || result.status === 'error') throw new Error(result.message || '匯入失敗');
+        status(result.message || '匯入完成。');
+      } catch (error) {
+        status(error.message, true);
+        node.disabled = false;
+      }
+    }
+    function render(state) {
+      $('mode').textContent = state.mode === 'dry-run' ? '目前是 dry-run：點擊匯入不會寫入本機。' : '已完成本機掃描。';
+      const cursor = state.cursor;
+      $('cursor-info').textContent = cursor.status === 'ready'
+        ? `已找到 ${cursor.source}（${cursor.reader || 'local'}）`
+        : cursor.message;
+      $('cursor-account').replaceChildren();
+      if (cursor.status === 'ready') {
+        const account = document.createElement('div');
+        account.className = 'account';
+        account.append(text('p', `帳號：${cursor.email}`));
+        account.append(text('p', 'Credential：已在本機偵測到', 'muted'));
+        account.append(button('匯入 Cursor', 'cursor', cursor.id));
+        $('cursor-account').append(account);
+      }
+      const kiro = state.kiro;
+      $('kiro-info').textContent = kiro.status === 'ready' ? '已找到可匯入的 Kiro 本機 profile。' : kiro.message;
+      $('kiro-accounts').replaceChildren();
+      for (const candidate of kiro.candidates || []) {
+        const account = document.createElement('div');
+        account.className = 'account';
+        account.append(text('p', `${candidate.email || 'Kiro 帳號'} · ${candidate.region}`));
+        account.append(text('p', `來源：${candidate.source}${candidate.matchedAuth ? ' · 已與目前登入狀態匹配' : ''}`, 'muted'));
+        account.append(button('匯入此 Kiro 帳號', 'kiro', candidate.id));
+        $('kiro-accounts').append(account);
+      }
+      if (!kiro.candidates || !kiro.candidates.length) $('kiro-accounts').append(text('p', '目前沒有可匯入項目。', 'muted'));
+    }
+    async function scan() {
+      status('正在掃描本機帳號…');
+      try {
+        const response = await fetch('/api/state', {cache: 'no-store'});
+        if (!response.ok) throw new Error('掃描失敗');
+        render(await response.json());
+        status('掃描完成。');
+      } catch (error) {
+        status(error.message, true);
+      }
+    }
+    $('refresh').addEventListener('click', scan);
+    $('close').addEventListener('click', async () => {
+      try { await fetch('/api/close', {method: 'POST'}); } finally { window.close(); }
+    });
+    const statusNode = document.createElement('div');
+    statusNode.id = 'status';
+    $('mode').after(statusNode);
+    scan();
+  </script>
+</body>
+</html>

@@ -1,0 +1,218 @@
+{
+  "UUID": "com.ulanzi.ulanzistudio.agentusage",
+  "Name": "Ulanzi Agent Usage",
+  "Description": "Monitor Claude, Codex, Cursor, Copilot, Kiro, Antigravity, and OpenCode usage on your Ulanzi Deck. Provider credentials stay on your machine and each adapter can be configured independently.",
+  "Author": "Ulanzi Agent Usage contributors",
+  "Version": "3.0.1",
+  "Icon": "resources/icon.png",
+  "Category": "AI Agent Usage",
+  "CategoryIcon": "resources/icon.png",
+  "CodePath": "plugin/app.js",
+  "Type": "JavaScript",
+  "PrivateAPI": false,
+  "SupportedInMultiActions": false,
+  "Actions": [
+    {
+      "Name": "5-hour Limit",
+      "Tooltip": "Claude Code 5-hour rolling limit usage.",
+      "Icon": "resources/action-5h.png",
+      "PropertyInspectorPath": "property-inspector/inspector.html",
+      "UUID": "com.ulanzi.ulanzistudio.agentusage.claude_5h",
+      "States": [
+        { "Name": "Default", "Image": "resources/action-5h.png" }
+      ],
+      "SupportedInMultiActions": false,
+      "Controllers": ["Keypad"],
+      "Devices": []
+    },
+    {
+      "Name": "Weekly Limit",
+      "Tooltip": "Claude Code weekly (all models) usage.",
+      "Icon": "resources/action-7d.png",
+      "PropertyInspectorPath": "property-inspector/inspector.html",
+      "UUID": "com.ulanzi.ulanzistudio.agentusage.claude_7d",
+      "States": [
+        { "Name": "Default", "Image": "resources/action-7d.png" }
+      ],
+      "SupportedInMultiActions": false,
+      "Controllers": ["Keypad"],
+      "Devices": []
+    },
+    {
+      "Name": "Codex 5h",
+      "Tooltip": "Codex (OpenAI) 5-hour rolling limit — read through the official app-server.",
+      "Icon": "resources/icon.png",
+      "PropertyInspectorPath": "property-inspector/provider-inspector.html",
+      "UUID": "com.ulanzi.ulanzistudio.agentusage.codex_5h",
+      "States": [
+        { "Name": "Default", "Image": "resources/icon.png" }
+      ],
+      "SupportedInMultiActions": false,
+      "Controllers": ["Keypad"],
+      "Devices": []
+    },
+    {
+      "Name": "Codex Weekly",
+      "Tooltip": "Codex (OpenAI) weekly limit — read through the official app-server.",
+      "Icon": "resources/icon.png",
+      "PropertyInspectorPath": "property-inspector/provider-inspector.html",
+      "UUID": "com.ulanzi.ulanzistudio.agentusage.codex_7d",
+      "States": [
+        { "Name": "Default", "Image": "resources/icon.png" }
+      ],
+      "SupportedInMultiActions": false,
+      "Controllers": ["Keypad"],
+      "Devices": []
+    },
+    {
+      "Name": "Cursor Usage",
+      "Tooltip": "Cursor billing-cycle quota usage — experimental dashboard adapter.",
+      "Icon": "resources/icon.png",
+      "PropertyInspectorPath": "property-inspector/provider-inspector.html",
+      "UUID": "com.ulanzi.ulanzistudio.agentusage.cursor",
+      "States": [
+        { "Name": "Default", "Image": "resources/icon.png" }
+      ],
+      "SupportedInMultiActions": false,
+      "Controllers": ["Keypad"],
+      "Devices": []
+    },
+    {
+      "Name": "Copilot Included Credits",
+      "Tooltip": "GitHub Copilot included credits (premium models: Claude, GPT-4o…) — select account in property inspector.",
+      "Icon": "resources/icon.png",
+      "PropertyInspectorPath": "property-inspector/copilot-inspector.html",
+      "UUID": "com.ulanzi.ulanzistudio.agentusage.copilot_chat",
+      "States": [
+        { "Name": "Default", "Image": "resources/icon.png" }
+      ],
+      "SupportedInMultiActions": false,
+      "Controllers": ["Keypad"],
+      "Devices": []
+    },
+    {
+      "Name": "Copilot Inline Suggestions",
+      "Tooltip": "GitHub Copilot inline suggestions (code completions) quota — select account in property inspector.",
+      "Icon": "resources/icon.png",
+      "PropertyInspectorPath": "property-inspector/copilot-inspector.html",
+      "UUID": "com.ulanzi.ulanzistudio.agentusage.copilot_comp",
+      "States": [
+        { "Name": "Default", "Image": "resources/icon.png" }
+      ],
+      "SupportedInMultiActions": false,
+      "Controllers": ["Keypad"],
+      "Devices": []
+    },
+    {
+      "Name": "Kiro Usage",
+      "Tooltip": "Kiro credit quota usage — select account in property inspector.",
+      "Icon": "resources/icon.png",
+      "PropertyInspectorPath": "property-inspector/kiro-inspector.html",
+      "UUID": "com.ulanzi.ulanzistudio.agentusage.kiro",
+      "States": [
+        { "Name": "Default", "Image": "resources/icon.png" }
+      ],
+      "SupportedInMultiActions": false,
+      "Controllers": ["Keypad"],
+      "Devices": []
+    },
+    {
+      "Name": "Antigravity Gemini 5h",
+      "Tooltip": "Antigravity Gemini 5-hour rolling limit — experimental helper adapter.",
+      "Icon": "resources/icon.png",
+      "PropertyInspectorPath": "property-inspector/provider-inspector.html",
+      "UUID": "com.ulanzi.ulanzistudio.agentusage.antigravity_gemini_5h",
+      "States": [
+        { "Name": "Default", "Image": "resources/icon.png" }
+      ],
+      "SupportedInMultiActions": false,
+      "Controllers": ["Keypad"],
+      "Devices": []
+    },
+    {
+      "Name": "Antigravity Gemini Weekly",
+      "Tooltip": "Antigravity Gemini weekly limit — experimental helper adapter.",
+      "Icon": "resources/icon.png",
+      "PropertyInspectorPath": "property-inspector/provider-inspector.html",
+      "UUID": "com.ulanzi.ulanzistudio.agentusage.antigravity_gemini_7d",
+      "States": [
+        { "Name": "Default", "Image": "resources/icon.png" }
+      ],
+      "SupportedInMultiActions": false,
+      "Controllers": ["Keypad"],
+      "Devices": []
+    },
+    {
+      "Name": "Antigravity 3P 5h",
+      "Tooltip": "Antigravity 3rd-party (Claude/other) 5-hour limit — experimental helper adapter.",
+      "Icon": "resources/icon.png",
+      "PropertyInspectorPath": "property-inspector/provider-inspector.html",
+      "UUID": "com.ulanzi.ulanzistudio.agentusage.antigravity_3p_5h",
+      "States": [
+        { "Name": "Default", "Image": "resources/icon.png" }
+      ],
+      "SupportedInMultiActions": false,
+      "Controllers": ["Keypad"],
+      "Devices": []
+    },
+    {
+      "Name": "Antigravity 3P Weekly",
+      "Tooltip": "Antigravity 3rd-party (Claude/other) weekly limit — experimental helper adapter.",
+      "Icon": "resources/icon.png",
+      "PropertyInspectorPath": "property-inspector/provider-inspector.html",
+      "UUID": "com.ulanzi.ulanzistudio.agentusage.antigravity_3p_7d",
+      "States": [
+        { "Name": "Default", "Image": "resources/icon.png" }
+      ],
+      "SupportedInMultiActions": false,
+      "Controllers": ["Keypad"],
+      "Devices": []
+    },
+    {
+      "Name": "OpenCode Go 5h Usage",
+      "Tooltip": "OpenCode Go server-reported used percentage for the rolling 5-hour window.",
+      "Icon": "resources/icon.png",
+      "PropertyInspectorPath": "property-inspector/provider-inspector.html",
+      "UUID": "com.ulanzi.ulanzistudio.agentusage.opencode_go_5h",
+      "States": [
+        { "Name": "Default", "Image": "resources/icon.png" }
+      ],
+      "SupportedInMultiActions": false,
+      "Controllers": ["Keypad"],
+      "Devices": []
+    },
+    {
+      "Name": "OpenCode Go Weekly Usage",
+      "Tooltip": "OpenCode Go server-reported used percentage for the rolling 7-day window.",
+      "Icon": "resources/icon.png",
+      "PropertyInspectorPath": "property-inspector/provider-inspector.html",
+      "UUID": "com.ulanzi.ulanzistudio.agentusage.opencode_go_7d",
+      "States": [
+        { "Name": "Default", "Image": "resources/icon.png" }
+      ],
+      "SupportedInMultiActions": false,
+      "Controllers": ["Keypad"],
+      "Devices": []
+    },
+    {
+      "Name": "OpenCode Go Monthly Usage",
+      "Tooltip": "OpenCode Go server-reported used percentage for the current monthly window.",
+      "Icon": "resources/icon.png",
+      "PropertyInspectorPath": "property-inspector/provider-inspector.html",
+      "UUID": "com.ulanzi.ulanzistudio.agentusage.opencode_go_month",
+      "States": [
+        { "Name": "Default", "Image": "resources/icon.png" }
+      ],
+      "SupportedInMultiActions": false,
+      "Controllers": ["Keypad"],
+      "Devices": []
+    }
+  ],
+  "OS": [
+    { "Platform": "mac",     "MinimumVersion": "10.15" },
+    { "Platform": "windows", "MinimumVersion": "10" }
+  ],
+  "Software": {
+    "MinVersion": "3.0.11"
+  }
+}

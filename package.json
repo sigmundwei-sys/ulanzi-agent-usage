@@ -1,0 +1,25 @@
+{
+  "name": "ulanzi-agent-usage",
+  "version": "3.0.1",
+  "description": "Standalone Ulanzi Deck plugin for Claude, Codex, Cursor, Copilot, Kiro, Antigravity, and OpenCode usage.",
+  "author": "Ulanzi Agent Usage contributors",
+  "license": "MIT",
+  "engines": {
+    "node": ">=20"
+  },
+  "main": "plugin/app.js",
+  "type": "module",
+  "scripts": {
+    "start": "node plugin/app.js",
+    "check": "node scripts/check-syntax.mjs",
+    "test": "node test/provider-parsers.test.js && node test/provider-setup.test.js",
+    "validate:manifest": "node scripts/validate-manifest.mjs"
+  },
+  "dependencies": {
+    "sql.js": "1.14.1",
+    "ws": "8.21.1"
+  },
+  "optionalDependencies": {
+    "https-proxy-agent": "7.0.6"
+  }
+}

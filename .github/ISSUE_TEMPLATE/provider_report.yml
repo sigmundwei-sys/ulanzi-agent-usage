@@ -1,0 +1,49 @@
+name: Provider report
+description: Report an upstream API, CLI, dashboard, or quota-format change.
+title: "[Provider]: "
+labels: ["provider", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please report provider changes without sharing secrets. Redact tokens, cookies, emails, workspace IDs, and account exports.
+  - type: dropdown
+    id: provider
+    attributes:
+      label: Provider
+      options:
+        - Claude Code
+        - Codex
+        - Cursor
+        - GitHub Copilot
+        - Kiro
+        - Antigravity
+        - OpenCode Go
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Plugin version
+    validations:
+      required: true
+  - type: textarea
+    id: symptom
+    attributes:
+      label: Symptom and approximate start date
+      description: Include the displayed error and whether the provider changed its CLI/API/dashboard.
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Redacted evidence
+      description: Link public provider release notes or paste a redacted response shape. Do not paste credentials.
+      render: text
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Safety checklist
+      options:
+        - label: I removed tokens, cookies, account identifiers, and private URLs.
+          required: true

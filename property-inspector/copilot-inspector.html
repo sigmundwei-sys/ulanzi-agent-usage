@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,minimum-scale=1,user-scalable=no,minimal-ui,viewport-fit=cover" />
+  <title>Copilot Usage</title>
+  <link rel="stylesheet" href="../libs/css/uspi.css">
+  <style>
+    .panel { padding: 8px 12px; font-size: 12px; line-height: 1.5; }
+    .panel h4 { margin: 8px 0 4px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; opacity: 0.7; }
+    .panel p  { margin: 0 0 8px; opacity: 0.85; }
+    .panel .muted { opacity: 0.6; font-size: 11px; }
+    .field { margin-bottom: 10px; }
+    .field label { display: block; font-size: 11px; font-weight: 600; opacity: 0.75; margin-bottom: 3px; }
+    .field input {
+      width: 100%; box-sizing: border-box;
+      background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.15);
+      color: #fff; border-radius: 4px; padding: 4px 6px; font-size: 12px;
+    }
+    .field input:focus { outline: none; border-color: rgba(255,255,255,0.4); }
+  </style>
+</head>
+<body>
+  <div class="udpi-wrapper uspi-wrapper">
+    <form id="property-inspector">
+      <div class="panel">
+        <h4>GitHub Copilot Account</h4>
+        <div class="field">
+          <label>Profile ID (optional)</label>
+          <input id="profile-id" type="text" placeholder="Auto (first profile)">
+        </div>
+        <p class="muted">Data refreshes every 5 min from GitHub's local Copilot session.</p>
+        <p class="muted">The token stays on this machine; see the setup guide for configuration.</p>
+      </div>
+    </form>
+  </div>
+
+  <script src="../libs/js/constants.js"></script>
+  <script src="../libs/js/eventEmitter.js"></script>
+  <script src="../libs/js/timers.js"></script>
+  <script src="../libs/js/utils.js"></script>
+  <script src="../libs/js/ulanziApi.js"></script>
+  <script src="./copilot-inspector.js"></script>
+</body>
+</html>

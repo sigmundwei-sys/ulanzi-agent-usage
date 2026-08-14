@@ -1,0 +1,25 @@
+{
+  "providers": {
+    "copilot": {
+      "tokenEnv": "GITHUB_COPILOT_TOKEN"
+    },
+    "cursor": {
+      "sessionTokenEnv": "CURSOR_SESSION_TOKEN"
+    },
+    "kiro": {
+      "profiles": [
+        {
+          "id": "work",
+          "label": "Work",
+          "profileArn": "arn:aws:codewhisperer:us-east-1:123456789012:profile/replace-me",
+          "authFile": "~/.aws/sso/cache/kiro-auth-token.json"
+        }
+      ]
+    },
+    "antigravity": {
+      "bin": "antigravity-usage",
+      "agyBin": "agy",
+      "args": ["quota", "--method", "auto", "--json"]
+    }
+  }
+}

@@ -1,0 +1,116 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Validate (Node ${{ matrix.node-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: [20.x, 22.x]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Check JavaScript syntax
+        run: npm run check
+
+      - name: Validate Ulanzi manifest
+        run: npm run validate:manifest
+
+      - name: Run parser tests
+        run: npm test
+
+      - name: Validate JSON documents
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          for (const file of fs.readdirSync('.').filter((name) => name.endsWith('.json'))) {
+            JSON.parse(fs.readFileSync(file, 'utf8'));
+          }
+          console.log('All root JSON documents are valid.');
+          NODE
+
+      - name: Validate installer syntax
+        shell: bash
+        run: bash -n tools/install.sh
+
+  package:
+    name: Package plugin
+    runs-on: ubuntu-latest
+    needs: validate
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+
+      - name: Install dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Build release archive
+        shell: bash
+        run: |
+          set -euo pipefail
+          plugin_dir='com.ulanzi.agentusage.ulanziPlugin'
+          staging="${RUNNER_TEMP}/release/${plugin_dir}"
+          mkdir -p "$staging"
+          rsync -a --exclude='.git' \
+            --exclude='**/node_modules/***' \
+            --exclude='**/.npm-cache/***' \
+            --exclude='*.log' \
+            --exclude='config.json' \
+            --exclude='config.local.json' \
+            --exclude='opencode-go.json' \
+            --exclude='.env*' \
+            --exclude='*.credentials.json' \
+            --exclude='secure-account-storage.key' \
+            ./ "$staging/"
+          archive="$RUNNER_TEMP/${plugin_dir}.zip"
+          (cd "$RUNNER_TEMP/release" && zip -qr "$archive" "$plugin_dir")
+          if unzip -Z1 "$archive" | grep -E '(^|/)(node_modules|\.npm-cache|config\.json|config\.local\.json|opencode-go\.json|secure-account-storage\.key|[^/]+\.credentials\.json|\.env[^/]*)' >/tmp/ulanzi-forbidden.txt; then
+            echo 'Release archive contains forbidden local data:' >&2
+            cat /tmp/ulanzi-forbidden.txt >&2
+            exit 1
+          fi
+          sha256sum "$archive" | awk '{print $1 "  " basename}' basename="$(basename "$archive")" > "$archive.sha256"
+          echo "archive=$archive" >> "$GITHUB_OUTPUT"
+          echo "checksum=$archive.sha256" >> "$GITHUB_OUTPUT"
+        id: package
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: |
+            ${{ steps.package.outputs.archive }}
+            ${{ steps.package.outputs.checksum }}

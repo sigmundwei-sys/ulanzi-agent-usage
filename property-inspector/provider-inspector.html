@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,minimum-scale=1,user-scalable=no,minimal-ui,viewport-fit=cover" />
+  <title>Provider Setup</title>
+  <link rel="stylesheet" href="../libs/css/uspi.css">
+  <style>
+    .panel { padding: 8px 12px; font-size: 12px; line-height: 1.5; }
+    .panel h4 { margin: 8px 0 4px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; opacity: 0.7; }
+    .panel p { margin: 0 0 8px; opacity: 0.85; }
+    .panel code { background: rgba(255,255,255,0.08); padding: 1px 5px; border-radius: 3px; font-family: 'Cascadia Code','SF Mono',Menlo,Consolas,monospace; font-size: 11px; }
+    .panel .muted { opacity: 0.6; font-size: 11px; }
+  </style>
+</head>
+<body>
+  <div class="udpi-wrapper uspi-wrapper">
+    <div class="panel">
+      <h4>Ulanzi Agent Usage</h4>
+      <p>這個 action 會直接使用對應 provider 的 adapter，每 5 分鐘更新一次。設定檔放在本機，不會同步到 repository。</p>
+
+      <h4>Codex</h4>
+      <p><code>npm install --global @openai/codex</code> 後執行 <code>codex login</code>。Plugin 透過官方 app-server 讀取 rate limits。</p>
+
+      <h4>Cursor</h4>
+      <p>Experimental：設定 <code>CURSOR_SESSION_TOKEN</code>，或依 README 設定本機 config。</p>
+
+      <h4>Antigravity</h4>
+      <p>Experimental：安裝 <code>antigravity-usage</code>，並確認 <code>antigravity-usage --json</code> 可正常回傳資料。</p>
+
+      <h4>OpenCode Go</h4>
+      <p>安裝並設定 <code>@slkiser/opencode-quota</code>，再依 README 設定 workspace 與 cookie。</p>
+
+      <p class="muted">完整設定、隱私界線與故障排查：GitHub repository 的 README。</p>
+    </div>
+  </div>
+  <script src="../libs/js/constants.js"></script>
+  <script src="../libs/js/eventEmitter.js"></script>
+  <script src="../libs/js/timers.js"></script>
+  <script src="../libs/js/utils.js"></script>
+  <script src="../libs/js/ulanziApi.js"></script>
+  <script>
+    // The host-provided query string identifies the selected action instance.
+    $UD.connect(Utils.getQueryParams('uuid') || 'com.ulanzi.ulanzistudio.agentusage.codex_5h');
+  </script>
+</body>
+</html>
