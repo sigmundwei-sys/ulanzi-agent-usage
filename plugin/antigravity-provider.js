@@ -12,7 +12,7 @@ import http from 'node:http';
 import https from 'node:https';
 import os from 'node:os';
 import path from 'node:path';
-import { execFile as execFileCallback, spawn } from 'node:child_process';
+import { execFile as execFileCallback } from 'node:child_process';
 import { promisify } from 'node:util';
 import { expandPath, providerConfig } from './local-config.js';
 
@@ -305,10 +305,12 @@ async function fetchAgyQuotaSummary(config) {
   const binary = resolveAgyBinary(config);
   let child;
   try {
-    child = spawn(binary, ['models'], {
+    // execFile avoids the Windows console flash that can still occur with
+    // spawn() for console executables, even when windowsHide is enabled.
+    child = execFileCallback(binary, ['models'], {
       windowsHide: true,
       stdio: 'ignore',
-    });
+    }, () => {});
   } catch {
     return null;
   }
