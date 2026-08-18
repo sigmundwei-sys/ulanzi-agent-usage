@@ -5,7 +5,11 @@ import { parseCodexRateLimits } from '../plugin/codex-fetcher.js';
 import { parseCopilotEntitlement } from '../plugin/copilot-fetcher.js';
 import { parseCursorUsage } from '../plugin/cursor-provider.js';
 import { parseKiroUsage } from '../plugin/kiro-provider.js';
-import { parseAntigravityQuotaSummary, parseAntigravityUsage } from '../plugin/antigravity-provider.js';
+import {
+  parseAntigravityQuotaSummary,
+  parseAntigravityUsage,
+  readAntigravityUsage,
+} from '../plugin/antigravity-provider.js';
 
 const NOW = Date.parse('2026-08-13T00:00:00Z');
 
@@ -174,4 +178,27 @@ test('Antigravity parses the official agy weekly and five-hour summary', () => {
   assert.equal(parseAntigravityQuotaSummary(body, 'ag_gem_7d', NOW).util, 0.26);
   assert.equal(parseAntigravityQuotaSummary(body, 'ag_3p_5h', NOW).util, 0);
   assert.equal(parseAntigravityQuotaSummary(body, 'ag_3p_7d', NOW).util, 0);
+});
+
+test('Antigravity falls back to the configured helper for weekly usage', async () => {
+  const body = {
+    models: [{
+      modelId: 'MODEL_PLACEHOLDER_GEM_WEEKLY',
+      label: 'Gemini weekly',
+      remainingPercentage: 74,
+      resetTime: '2099-01-04T01:00:00.000Z',
+    }],
+  };
+  const helperScript = `process.stdout.write(${JSON.stringify(JSON.stringify(body))})`;
+  const value = await readAntigravityUsage('ag_gem_7d', {
+    providerConfig: {
+      agyBin: process.execPath,
+      bin: process.execPath,
+      args: ['-e', helperScript, '--'],
+    },
+  });
+
+  assert.equal(value.util, 0.26);
+  assert.equal(value.source, 'antigravity-usage-cli');
+  assert.equal(value.model, 'MODEL_PLACEHOLDER_GEM_WEEKLY');
 });

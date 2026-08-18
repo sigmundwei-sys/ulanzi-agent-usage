@@ -395,12 +395,6 @@ export async function readAntigravityUsage(metric, settings = {}) {
   if (summary) {
     const parsedSummary = parseAntigravityQuotaSummary(summary, metric);
     if (parsedSummary) return parsedSummary;
-    if (metric.endsWith('7d')) {
-      throw new Error(`Antigravity helper returned no ${metric} weekly quota`);
-    }
-  }
-  if (metric.endsWith('7d')) {
-    throw new Error('Antigravity weekly quota requires the official agy CLI helper');
   }
   const body = await runCli(config);
   const parsed = parseAntigravityUsage({ ...body, config }, metric);
