@@ -1,18 +1,21 @@
 /**
  * Antigravity usage provider.
  *
- * Antigravity does not expose a stable public personal quota endpoint. The
- * supported integration point here is the optional `antigravity-usage` CLI,
- * which can read the local IDE connection or its own local Google account
- * cache. The plugin never installs or downloads that helper automatically.
+ * Multi-tier Antigravity quota retrieval:
+ *   1. Live Antigravity Language Server / agy daemon RPC (RetrieveUserQuotaSummary)
+ *      with local loopback port detection and X-Codeium-Csrf-Token authentication.
+ *   2. Local statusline cache fallback (~/.gemini/tmp/real_quota_cache.json).
+ *   3. Cockpit-tools encrypted account fallback (~/.antigravity_cockpit/accounts/*.json).
+ *   4. antigravity-usage CLI fallback.
  */
 
+import crypto from 'node:crypto';
 import fs from 'node:fs';
 import http from 'node:http';
 import https from 'node:https';
 import os from 'node:os';
 import path from 'node:path';
-import { execFile as execFileCallback } from 'node:child_process';
+import { execFileSync, execFile as execFileCallback } from 'node:child_process';
 import { promisify } from 'node:util';
 import { expandPath, providerConfig } from './local-config.js';
 
@@ -172,8 +175,20 @@ function selectModel(body, metric, config) {
   if (!usable.length) return null;
 
   const wantsWeekly = metric.endsWith('7d');
+  if (wantsWeekly) {
+    const weeklyModel = usable.find((item) => /weekly|7d|week/.test(modelSearchText(item)));
+    if (weeklyModel) return weeklyModel;
+    const sorted = [...usable].sort((a, b) => (resetMs(a) ?? Number.MAX_SAFE_INTEGER) - (resetMs(b) ?? Number.MAX_SAFE_INTEGER));
+    const longest = sorted[sorted.length - 1];
+    const longestMs = resetMs(longest);
+    if (longestMs !== null && longestMs > 24 * 60 * 60 * 1000) {
+      return longest;
+    }
+    return null;
+  }
+
   const sorted = [...usable].sort((a, b) => (resetMs(a) ?? Number.MAX_SAFE_INTEGER) - (resetMs(b) ?? Number.MAX_SAFE_INTEGER));
-  return wantsWeekly ? sorted[sorted.length - 1] : sorted[0];
+  return sorted[0];
 }
 
 export function parseAntigravityUsage(body, metric, now = Date.now()) {
@@ -212,6 +227,58 @@ function resolveAgyBinary(config) {
     if (fs.existsSync(wellKnown)) return wellKnown;
   }
   return configured || 'agy';
+}
+
+function findRunningCandidatesWindows() {
+  try {
+    const script = `Get-CimInstance Win32_Process | Where-Object { $_.Name -match 'agy|language_server|antigravity' } | Select-Object ProcessId, CommandLine | ConvertTo-Json -Compress`;
+    const stdout = execFileSync('powershell.exe', ['-NoLogo', '-NoProfile', '-NonInteractive', '-Command', script], {
+      encoding: 'utf8',
+      windowsHide: true,
+      timeout: 4_000,
+      maxBuffer: 2 * 1024 * 1024,
+    }).trim();
+    if (!stdout) return [];
+    const parsed = JSON.parse(stdout);
+    const list = Array.isArray(parsed) ? parsed : [parsed];
+    return list.map((item) => {
+      const cmd = String(item.CommandLine || '');
+      const match = cmd.match(/--csrf_token(?:=|\s+)([^\s"']+)/);
+      return {
+        pid: item.ProcessId,
+        csrfToken: match ? match[1] : '',
+      };
+    }).filter((item) => item.pid);
+  } catch {
+    return [];
+  }
+}
+
+function findRunningCandidatesUnix() {
+  try {
+    const stdout = execFileSync('ps', ['auxww'], {
+      encoding: 'utf8',
+      timeout: 4_000,
+      maxBuffer: 2 * 1024 * 1024,
+    });
+    const candidates = [];
+    for (const line of stdout.split('\n')) {
+      const lower = line.toLowerCase();
+      if (!/agy|language_server|antigravity/.test(lower)) continue;
+      const parts = line.trim().split(/\s+/);
+      if (parts.length < 11) continue;
+      const pid = parseInt(parts[1], 10);
+      if (isNaN(pid)) continue;
+      const match = line.match(/--csrf_token(?:=|\s+)([^\s"']+)/);
+      candidates.push({
+        pid,
+        csrfToken: match ? match[1] : '',
+      });
+    }
+    return candidates;
+  } catch {
+    return [];
+  }
 }
 
 function parseWindowsListeningPorts(stdout, pid) {
@@ -259,7 +326,7 @@ async function listeningPorts(pid) {
   }
 }
 
-function requestQuotaSummary(port, secure) {
+function requestQuotaSummary(port, secure, csrfToken = '') {
   const transport = secure ? https : http;
   const body = JSON.stringify({
     metadata: {
@@ -278,8 +345,10 @@ function requestQuotaSummary(port, secure) {
       rejectUnauthorized: false,
       timeout: 1_500,
       headers: {
+        'Accept': 'application/json',
         'Content-Type': 'application/json',
         'Connect-Protocol-Version': '1',
+        ...(csrfToken ? { 'X-Codeium-Csrf-Token': csrfToken } : {}),
         'Content-Length': Buffer.byteLength(body),
       },
     }, (response) => {
@@ -303,6 +372,26 @@ function requestQuotaSummary(port, secure) {
 
 async function fetchAgyQuotaSummary(config) {
   const binary = resolveAgyBinary(config);
+  const isCustomAgy = Boolean(config.agyBin && config.agyBin !== 'agy' && !binary.endsWith('agy.exe'));
+
+  if (!isCustomAgy) {
+    const candidates = process.platform === 'win32'
+      ? findRunningCandidatesWindows()
+      : findRunningCandidatesUnix();
+
+    for (const candidate of candidates) {
+      const ports = await listeningPorts(candidate.pid);
+      for (const port of ports) {
+        for (const secure of [true, false]) {
+          try {
+            const body = await requestQuotaSummary(port, secure, candidate.csrfToken);
+            if (summaryGroups(body).length) return body;
+          } catch { /* Try next port/protocol. */ }
+        }
+      }
+    }
+  }
+
   let child;
   try {
     // execFile avoids the Windows console flash that can still occur with
@@ -360,6 +449,90 @@ async function readAgyQuotaSummary(config) {
   return value;
 }
 
+export function readStatuslineCache(metric, now = Date.now()) {
+  try {
+    const cachePath = path.join(os.homedir(), '.gemini', 'tmp', 'real_quota_cache.json');
+    if (!fs.existsSync(cachePath)) return null;
+    const data = JSON.parse(fs.readFileSync(cachePath, 'utf8'));
+    const isGemini = metric.startsWith('ag_gem_');
+    const isWeekly = metric.endsWith('7d');
+    const group = isGemini ? data?.quotaSummary?.gemini : data?.quotaSummary?.claude;
+    const limit = isWeekly ? group?.limit7d : group?.limit5h;
+    if (!limit || limit.remaining_percentage === undefined) return null;
+    const remaining = fractionFromPercentLike(limit.remaining_percentage);
+    if (remaining === null) return null;
+    return {
+      util: normalizeFraction(1 - remaining),
+      reset: limit.reset_time || null,
+      updatedAt: data.updatedAt ? Math.floor(data.updatedAt / 1000) : Math.floor(now / 1000),
+      staleSec: data.updatedAt ? Math.max(0, Math.floor((now - data.updatedAt) / 1000)) : 0,
+      source: 'antigravity-statusline-cache',
+      model: `${isGemini ? 'Gemini' : '3P'} ${isWeekly ? 'Weekly' : '5-Hour'}`,
+    };
+  } catch {
+    return null;
+  }
+}
+
+export function readCockpitAntigravityAccount(metric, now = Date.now()) {
+  try {
+    const keyPath = path.join(os.homedir(), '.antigravity_cockpit', 'secure-account-storage.key');
+    const accountsDir = path.join(os.homedir(), '.antigravity_cockpit', 'accounts');
+    if (!fs.existsSync(accountsDir)) return null;
+    const files = fs.readdirSync(accountsDir).filter((f) => f.endsWith('.json'));
+    if (!files.length) return null;
+
+    let key = null;
+    if (fs.existsSync(keyPath)) {
+      key = Buffer.from(fs.readFileSync(keyPath, 'utf8').trim(), 'base64');
+    }
+
+    for (const file of files) {
+      try {
+        const raw = fs.readFileSync(path.join(accountsDir, file), 'utf8');
+        let parsed = null;
+        if (raw.includes('"algorithm"') && raw.includes('"AES-256-GCM"') && key) {
+          const envelope = JSON.parse(raw);
+          const nonce = Buffer.from(envelope.nonce, 'base64');
+          const ciphertextWithTag = Buffer.from(envelope.ciphertext, 'base64');
+          const ciphertext = ciphertextWithTag.subarray(0, ciphertextWithTag.length - 16);
+          const tag = ciphertextWithTag.subarray(ciphertextWithTag.length - 16);
+          const decipher = crypto.createDecipheriv('aes-256-gcm', key, nonce);
+          decipher.setAuthTag(tag);
+          const decrypted = Buffer.concat([decipher.update(ciphertext), decipher.final()]);
+          parsed = JSON.parse(decrypted.toString('utf8'));
+        } else {
+          parsed = JSON.parse(raw);
+        }
+
+        const targetName = metric === 'ag_gem_5h' ? 'gemini-5h'
+          : metric === 'ag_gem_7d' ? 'gemini-weekly'
+          : metric === 'ag_3p_5h' ? '3p-5h'
+          : '3p-weekly';
+
+        const models = parsed?.quota?.models || [];
+        const match = models.find((m) => m.name === targetName);
+        if (match && match.percentage !== undefined) {
+          const remaining = fractionFromPercentLike(match.percentage);
+          if (remaining !== null) {
+            return {
+              util: normalizeFraction(1 - remaining),
+              reset: match.reset_time || null,
+              updatedAt: parsed?.quota?.last_updated || Math.floor(now / 1000),
+              staleSec: parsed?.quota?.last_updated ? Math.max(0, Math.floor(now / 1000) - parsed.quota.last_updated) : 0,
+              source: 'cockpit-account',
+              model: match.display_name || match.name,
+            };
+          }
+        }
+      } catch {}
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 async function runCli(config) {
   const file = config.bin || process.env.ANTIGRAVITY_USAGE_BIN || 'antigravity-usage';
   const args = Array.isArray(config.args) ? [...config.args] : ['--json'];
@@ -391,13 +564,40 @@ async function runCli(config) {
 
 export async function readAntigravityUsage(metric, settings = {}) {
   const config = providerConfig('antigravity', settings);
+  const isCustomBin = Boolean(config.bin && config.bin !== 'antigravity-usage');
+  const isCustomAgy = Boolean(config.agyBin && config.agyBin !== 'agy' && !config.agyBin.endsWith('agy.exe'));
+
   const summary = await readAgyQuotaSummary(config);
   if (summary) {
     const parsedSummary = parseAntigravityQuotaSummary(summary, metric);
     if (parsedSummary) return parsedSummary;
   }
-  const body = await runCli(config);
-  const parsed = parseAntigravityUsage({ ...body, config }, metric);
-  if (!parsed) throw new Error(`Antigravity helper returned no ${metric} quota`);
-  return parsed;
+
+  if (!isCustomBin && !isCustomAgy) {
+    const statuslineCache = readStatuslineCache(metric);
+    if (statuslineCache && statuslineCache.staleSec < 15 * 60) {
+      return statuslineCache;
+    }
+
+    const cockpitData = readCockpitAntigravityAccount(metric);
+    if (cockpitData && cockpitData.staleSec < 15 * 60) {
+      return cockpitData;
+    }
+  }
+
+  try {
+    const body = await runCli(config);
+    const parsed = parseAntigravityUsage({ ...body, config }, metric);
+    if (parsed) return parsed;
+  } catch {}
+
+  if (!isCustomBin && !isCustomAgy) {
+    const statuslineCache = readStatuslineCache(metric);
+    if (statuslineCache) return statuslineCache;
+    const cockpitData = readCockpitAntigravityAccount(metric);
+    if (cockpitData) return cockpitData;
+  }
+
+  throw new Error(`Antigravity helper returned no ${metric} quota`);
 }
+

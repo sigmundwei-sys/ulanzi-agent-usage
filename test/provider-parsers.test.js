@@ -202,3 +202,18 @@ test('Antigravity falls back to the configured helper for weekly usage', async (
   assert.equal(value.source, 'antigravity-usage-cli');
   assert.equal(value.model, 'MODEL_PLACEHOLDER_GEM_WEEKLY');
 });
+
+test('Antigravity rejects 5h session models when 7d weekly quota is requested', () => {
+  const body = {
+    models: [{
+      modelId: 'MODEL_PLACEHOLDER_M16',
+      label: 'Gemini 3.1 Pro (High)',
+      remainingPercentage: 0.98,
+      resetTime: '2026-08-20T12:39:03Z',
+      timeUntilResetMs: 11000000,
+    }],
+  };
+  const result = parseAntigravityUsage(body, 'ag_gem_7d', NOW);
+  assert.equal(result, null);
+});
+
