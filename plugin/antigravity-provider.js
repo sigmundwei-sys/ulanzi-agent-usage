@@ -375,7 +375,7 @@ async function fetchAgyQuotaSummary(config) {
   const isCustomAgy = Boolean(config.agyBin && config.agyBin !== 'agy' && !binary.endsWith('agy.exe'));
 
   if (!isCustomAgy) {
-    const candidates = process.platform === 'win32'
+    let candidates = process.platform === 'win32'
       ? findRunningCandidatesWindows()
       : findRunningCandidatesUnix();
 
@@ -390,43 +390,38 @@ async function fetchAgyQuotaSummary(config) {
         }
       }
     }
-  }
 
-  let child;
-  try {
-    // execFile avoids the Windows console flash that can still occur with
-    // spawn() for console executables, even when windowsHide is enabled.
-    child = execFileCallback(binary, ['models'], {
-      windowsHide: true,
-      stdio: 'ignore',
-    }, () => {});
-  } catch {
-    return null;
-  }
-  let exited = false;
-  child.once('exit', () => { exited = true; });
-  child.once('error', () => { exited = true; });
-  const deadline = Date.now() + AGY_TIMEOUT_MS;
-  try {
+    // If no running daemon responded, trigger CLI to ensure background daemon starts if available
+    try {
+      execFileCallback(binary, ['models'], {
+        windowsHide: true,
+        stdio: 'ignore',
+      }, () => {});
+    } catch { /* Ignore spawn error */ }
+
+    // Wait and re-scan for candidate processes that may have just started
+    const deadline = Date.now() + 3_000;
     while (Date.now() < deadline) {
-      const ports = await listeningPorts(child.pid);
-      for (const port of ports) {
-        for (const secure of [true, false]) {
-          try {
-            const body = await requestQuotaSummary(port, secure);
-            if (summaryGroups(body).length) return body;
-          } catch { /* Try the next loopback port/protocol. */ }
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      candidates = process.platform === 'win32'
+        ? findRunningCandidatesWindows()
+        : findRunningCandidatesUnix();
+
+      for (const candidate of candidates) {
+        const ports = await listeningPorts(candidate.pid);
+        for (const port of ports) {
+          for (const secure of [true, false]) {
+            try {
+              const body = await requestQuotaSummary(port, secure, candidate.csrfToken);
+              if (summaryGroups(body).length) return body;
+            } catch { /* Try next port/protocol. */ }
+          }
         }
       }
-      if (exited && !ports.length) break;
-      await new Promise((resolve) => setTimeout(resolve, 250));
     }
-    return null;
-  } catch {
-    return null;
-  } finally {
-    if (!child.killed && !exited) child.kill();
   }
+
+  return null;
 }
 
 async function readAgyQuotaSummary(config) {
@@ -479,7 +474,7 @@ export function readCockpitAntigravityAccount(metric, now = Date.now()) {
     const keyPath = path.join(os.homedir(), '.antigravity_cockpit', 'secure-account-storage.key');
     const accountsDir = path.join(os.homedir(), '.antigravity_cockpit', 'accounts');
     if (!fs.existsSync(accountsDir)) return null;
-    const files = fs.readdirSync(accountsDir).filter((f) => f.endsWith('.json'));
+    const files = fs.readdirSync(accountsDir).filter((f) => f.endsWith('.json') || f.endsWith('.json.bak'));
     if (!files.length) return null;
 
     let key = null;
@@ -533,6 +528,44 @@ export function readCockpitAntigravityAccount(metric, now = Date.now()) {
   }
 }
 
+function lastGoodCacheFile() {
+  return path.join(os.homedir(), '.gemini', 'tmp', 'antigravity_last_good.json');
+}
+
+export function saveLastGoodAntigravity(metric, data) {
+  try {
+    const file = lastGoodCacheFile();
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    let all = {};
+    if (fs.existsSync(file)) {
+      try { all = JSON.parse(fs.readFileSync(file, 'utf8')) || {}; } catch {}
+    }
+    all[metric] = { ...data, savedAt: Date.now() };
+    fs.writeFileSync(file, JSON.stringify(all, null, 2), { encoding: 'utf8' });
+  } catch {}
+}
+
+export function readLastGoodAntigravity(metric, now = Date.now()) {
+  try {
+    const file = lastGoodCacheFile();
+    if (!fs.existsSync(file)) return null;
+    const all = JSON.parse(fs.readFileSync(file, 'utf8'));
+    const entry = all?.[metric];
+    if (!entry || entry.util === undefined) return null;
+    const savedAt = entry.savedAt || (entry.updatedAt ? entry.updatedAt * 1000 : now);
+    return {
+      util: entry.util,
+      reset: entry.reset || null,
+      updatedAt: Math.floor(savedAt / 1000),
+      staleSec: Math.max(0, Math.floor((now - savedAt) / 1000)),
+      source: 'antigravity-persisted-cache',
+      model: entry.model || metric,
+    };
+  } catch {
+    return null;
+  }
+}
+
 async function runCli(config) {
   const file = config.bin || process.env.ANTIGRAVITY_USAGE_BIN || 'antigravity-usage';
   const args = Array.isArray(config.args) ? [...config.args] : ['--json'];
@@ -570,17 +603,22 @@ export async function readAntigravityUsage(metric, settings = {}) {
   const summary = await readAgyQuotaSummary(config);
   if (summary) {
     const parsedSummary = parseAntigravityQuotaSummary(summary, metric);
-    if (parsedSummary) return parsedSummary;
+    if (parsedSummary) {
+      saveLastGoodAntigravity(metric, parsedSummary);
+      return parsedSummary;
+    }
   }
 
   if (!isCustomBin && !isCustomAgy) {
     const statuslineCache = readStatuslineCache(metric);
     if (statuslineCache && statuslineCache.staleSec < 15 * 60) {
+      saveLastGoodAntigravity(metric, statuslineCache);
       return statuslineCache;
     }
 
     const cockpitData = readCockpitAntigravityAccount(metric);
     if (cockpitData && cockpitData.staleSec < 15 * 60) {
+      saveLastGoodAntigravity(metric, cockpitData);
       return cockpitData;
     }
   }
@@ -588,14 +626,25 @@ export async function readAntigravityUsage(metric, settings = {}) {
   try {
     const body = await runCli(config);
     const parsed = parseAntigravityUsage({ ...body, config }, metric);
-    if (parsed) return parsed;
+    if (parsed) {
+      saveLastGoodAntigravity(metric, parsed);
+      return parsed;
+    }
   } catch {}
 
   if (!isCustomBin && !isCustomAgy) {
     const statuslineCache = readStatuslineCache(metric);
-    if (statuslineCache) return statuslineCache;
+    if (statuslineCache) {
+      saveLastGoodAntigravity(metric, statuslineCache);
+      return statuslineCache;
+    }
     const cockpitData = readCockpitAntigravityAccount(metric);
-    if (cockpitData) return cockpitData;
+    if (cockpitData) {
+      saveLastGoodAntigravity(metric, cockpitData);
+      return cockpitData;
+    }
+    const persisted = readLastGoodAntigravity(metric);
+    if (persisted) return persisted;
   }
 
   throw new Error(`Antigravity helper returned no ${metric} quota`);

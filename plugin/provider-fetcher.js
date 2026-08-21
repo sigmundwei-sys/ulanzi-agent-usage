@@ -10,7 +10,7 @@ import { readCodexUsage } from './codex-fetcher.js';
 import { readCursorUsage } from './cursor-provider.js';
 import { readCopilotUsage } from './copilot-fetcher.js';
 import { fetchKiroLive } from './kiro-provider.js';
-import { readAntigravityUsage } from './antigravity-provider.js';
+import { readAntigravityUsage, readLastGoodAntigravity } from './antigravity-provider.js';
 
 export const PROVIDER_ACTION_MAP = Object.freeze({
   'com.ulanzi.ulanzistudio.agentusage.codex_5h': 'codex',
@@ -44,6 +44,15 @@ export const PROVIDER_DEFS = Object.freeze({
   opencode_go_month: { serverUsage: true, label: 'OCG MON' },
 });
 
+export function readInitialProviderState(provider) {
+  const def = PROVIDER_DEFS[provider];
+  if (!def) return null;
+  if (def.adapter === 'antigravity') {
+    return readLastGoodAntigravity(def.metric);
+  }
+  return null;
+}
+
 export async function readProviderUsage(provider, settings = {}) {
   const def = PROVIDER_DEFS[provider];
   if (!def) return null;
@@ -62,3 +71,4 @@ export async function readProviderUsage(provider, settings = {}) {
       return null;
   }
 }
+

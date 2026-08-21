@@ -9,7 +9,7 @@
 
 import UlanziApi from './plugin-common-node/index.js';
 import { fetchUsage, formatReset, readStaleCache, ErrorKind } from './usage-fetcher.js';
-import { PROVIDER_ACTION_MAP, PROVIDER_DEFS, readProviderUsage } from './provider-fetcher.js';
+import { PROVIDER_ACTION_MAP, PROVIDER_DEFS, readProviderUsage, readInitialProviderState } from './provider-fetcher.js';
 import { readOpenCodeUsage } from './opencode-quota-bridge.js';
 import {
   renderUsage,
@@ -236,10 +236,23 @@ async function refreshProvider(inst) {
       applyResult(inst, result);
     } else {
       applyResult(inst, { ok: false, message: 'No provider data' });
+      // If we don't have good data yet (e.g. during system boot), retry sooner (15s)
+      if (!inst.lastGood && inst.active && !inst.retryTimer) {
+        inst.retryTimer = setTimeout(() => {
+          inst.retryTimer = null;
+          refreshProvider(inst);
+        }, 15_000);
+      }
     }
   } catch (e) {
     log('provider refresh threw', e?.message);
     applyResult(inst, { ok: false, message: e?.message || 'unknown' });
+    if (!inst.lastGood && inst.active && !inst.retryTimer) {
+      inst.retryTimer = setTimeout(() => {
+        inst.retryTimer = null;
+        refreshProvider(inst);
+      }, 15_000);
+    }
   } finally {
     inst.inflight = false;
   }
@@ -258,6 +271,7 @@ function startPolling(inst) {
 function stopPolling(inst) {
   if (inst.startTimer) { clearTimeout(inst.startTimer);  inst.startTimer = null; }
   if (inst.timer)      { clearInterval(inst.timer);      inst.timer = null;      }
+  if (inst.retryTimer) { clearTimeout(inst.retryTimer);  inst.retryTimer = null; }
 }
 
 // ── Instance 管理 ──────────────────────────────────────────────────────────
@@ -281,8 +295,11 @@ function ensureInstance(context, settings) {
         inflight: false,
         timer: null,
         startTimer: null,
+        retryTimer: null,
         active: true,
       };
+      const initial = readInitialProviderState(provider);
+      if (initial) inst.lastGood = { ok: true, data: initial };
     } else {
       const metric = metricFromContext(context, settings);
       inst = {
@@ -296,6 +313,7 @@ function ensureInstance(context, settings) {
         inflight: false,
         timer: null,
         startTimer: null,
+        retryTimer: null,
         active: true,
       };
       const stale = readStaleCache();
