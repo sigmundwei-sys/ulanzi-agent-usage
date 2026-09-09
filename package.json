@@ -1,7 +1,7 @@
 {
   "name": "ulanzi-agent-usage",
   "version": "3.0.1",
-  "description": "Standalone Ulanzi Deck plugin for Claude, Codex, Cursor, Copilot, Kiro, Antigravity, and OpenCode usage.",
+  "description": "Standalone Ulanzi Deck plugin for Claude, Codex, Cursor, Copilot, Kiro, Antigravity, Grok, and OpenCode usage.",
   "author": "Ulanzi Agent Usage contributors",
   "license": "MIT",
   "engines": {

@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { parseCodexRateLimits } from '../plugin/codex-fetcher.js';
+import { parseCodexRateLimits, parseCodexSparkRateLimits } from '../plugin/codex-fetcher.js';
+import { parseGrokBilling } from '../plugin/grok-fetcher.js';
 import { parseCopilotEntitlement } from '../plugin/copilot-fetcher.js';
 import { parseCursorUsage } from '../plugin/cursor-provider.js';
 import { parseKiroUsage } from '../plugin/kiro-provider.js';
@@ -39,6 +40,41 @@ test('Codex returns null when the requested window is absent', () => {
   assert.equal(value, null);
 });
 
+test('Codex parser reads the model-specific GPT-5.3-Codex-Spark bucket', () => {
+  const response = {
+    rateLimitsByLimitId: {
+      codex_bengalfox: {
+        limitId: 'codex_bengalfox',
+        limitName: 'GPT-5.3-Codex-Spark',
+        primary: { usedPercent: 25, windowDurationMins: 300, resetsAt: NOW / 1000 + 3600 },
+        secondary: { usedPercent: 40, windowDurationMins: 10080, resetsAt: NOW / 1000 + 86400 },
+      },
+    },
+  };
+
+  assert.equal(parseCodexSparkRateLimits(response, 'hourly', NOW).util, 0.25);
+  assert.equal(parseCodexSparkRateLimits(response, 'weekly', NOW).util, 0.4);
+  assert.equal(parseCodexSparkRateLimits({ rateLimitsByLimitId: {} }, 'hourly', NOW), null);
+});
+
+test('Grok parser returns shared weekly and GrokBuild usage separately', () => {
+  const body = {
+    config: {
+      creditUsagePercent: 42.5,
+      currentPeriod: {
+        type: 'USAGE_PERIOD_TYPE_WEEKLY',
+        end: '2026-09-16T00:00:00.000Z',
+      },
+      productUsage: [
+        { product: 'PRODUCT_GROK_BUILD', usagePercent: 61.2 },
+      ],
+    },
+  };
+
+  assert.equal(parseGrokBilling(body, 'weekly', NOW).util, 0.425);
+  assert.equal(parseGrokBilling(body, 'build', NOW).util, 0.612);
+  assert.equal(parseGrokBilling(body, 'build', NOW).reset, '2026-09-16T00:00:00.000Z');
+});
 test('Copilot parses remaining percentage snapshots', () => {
   const value = parseCopilotEntitlement({
     copilot_quota_snapshots: { chat: { percent_remaining: 64 } },

@@ -7,7 +7,7 @@
 
 English · [繁體中文](README.zh-TW.md) · [日本語](README.ja.md) · [한국어](README.ko.md)
 
-Display the usage of your AI coding agents on an Ulanzi Deck: Claude Code, Codex, Cursor, GitHub Copilot, Kiro, Antigravity, and OpenCode Go.
+Display the usage of your AI coding agents on an Ulanzi Deck: Claude Code, Codex, Cursor, GitHub Copilot, Kiro, Antigravity, Grok, and OpenCode Go.
 
 ![Animated Ulanzi Agent Usage preview](docs/showcase.gif)
 
@@ -20,11 +20,11 @@ The included preview cycles through the same quota icon states used by the plugi
 This is a real Ulanzi D200H capture shared by the maintainer. The providers,
 percentages, and reset times shown on your device will vary with your accounts.
 
-> This project is independent software. It is not an official product of Ulanzi, Anthropic, OpenAI, Cursor, GitHub, Amazon, Google, or OpenCode.
+> This project is independent software. It is not an official product of Ulanzi, Anthropic, OpenAI, Cursor, GitHub, Amazon, Google, xAI, or OpenCode.
 
 ## Why this plugin
 
-- **15 ready-to-use actions** for rolling 5-hour, weekly, monthly, credit, and completion windows.
+- **19 ready-to-use actions** for rolling 5-hour, weekly, monthly, credit, completion, and product-specific windows.
 - **Inspired account setup.** The click-to-import experience takes inspiration from `cockpit-tools`; each provider uses its own official CLI, API, dashboard, or explicitly configured local helper.
 - **Stale-safe rendering.** When a provider is temporarily unavailable, the last good value stays visible with a stale indicator instead of becoming a misleading `0%`.
 - **Local-first credentials.** Tokens, cookies, and account files stay on your computer; they are not sent to a central service or stored in Ulanzi settings.
@@ -37,7 +37,8 @@ percentages, and reset times shown on your device will vary with your accounts.
 | Provider | Actions | Data source | Status |
 | --- | --- | --- | --- |
 | Claude Code | 5h, 7d | Claude Code OAuth usage API and local credential store | Stable |
-| Codex | 5h, 7d | Official `codex app-server` `account/rateLimits/read` | Stable |
+| Codex | 5h, 7d, GPT-5.3-Codex-Spark 5h/weekly | Official Codex app-server limits plus model-specific rateLimitsByLimitId | Stable when returned |
+| Grok | shared weekly pool, GrokBuild | Official Grok CLI billing endpoint using local CLI auth | Experimental; requires grok login |
 | Kiro | Credit usage | AWS Kiro usage API and AWS SSO cache | Stable; profile ARN required |
 | OpenCode Go | 5h, 7d, month | Console server dashboard with helper-cache fallback | Stable; local setup required |
 | Cursor | Billing cycle | Cursor dashboard read-only endpoint | Experimental |
@@ -168,6 +169,10 @@ codex login
 ```
 
 The plugin starts `codex app-server` and reads the official rate-limit windows. If the executable is not on `PATH`, set `CODEX_BIN` or `CODEX_APP_SERVER_JS`.
+
+### Grok
+
+Run grok login before using the Grok actions. Grok Weekly Usage shows the shared weekly pool; GrokBuild Usage shows the product usage within that pool.
 
 ### Kiro
 

@@ -7,7 +7,7 @@
 
 [English](README.md) · [繁體中文](README.zh-TW.md) · 日本語 · [한국어](README.ko.md)
 
-Claude Code、Codex、Cursor、GitHub Copilot、Kiro、Antigravity、OpenCode Go など、AI コーディングエージェントの使用量を Ulanzi Deck に表示します。
+Claude Code、Codex、Cursor、GitHub Copilot、Kiro、Antigravity、Grok、OpenCode Go など、AI コーディングエージェントの使用量を Ulanzi Deck に表示します。
 
 ![Ulanzi Agent Usage のアニメーションプレビュー](docs/showcase.gif)
 
@@ -20,11 +20,11 @@ Claude Code、Codex、Cursor、GitHub Copilot、Kiro、Antigravity、OpenCode Go
 これはメンテナーが共有する実際の Ulanzi D200H 画面です。表示される provider、
 割合、リセット時刻はアカウントによって異なります。
 
-> 本プロジェクトは独立したソフトウェアです。Ulanzi、Anthropic、OpenAI、Cursor、GitHub、Amazon、Google、OpenCode の公式製品ではありません。
+> 本プロジェクトは独立したソフトウェアです。Ulanzi、Anthropic、OpenAI、Cursor、GitHub、Amazon、Google、xAI、OpenCode の公式製品ではありません。
 
 ## 特徴
 
-- **15 個のすぐ使える action**：5 時間 rolling、weekly、monthly、credit、completion の各ウィンドウ。
+- **19 個のすぐ使える action**：5 時間 rolling、weekly、monthly、credit、completion、product-specific の各ウィンドウ。
 - **アカウント取り込み体験**：`cockpit-tools` のアカウント管理フローから着想を得ており、provider ごとに公式 CLI、API、dashboard、または明示的に設定したローカル helper を使用。
 - **安全な stale 表示**：一時的な取得失敗時も最後に成功した値を残し、誤った `0%` を表示しない。
 - **ローカル優先の認証情報管理**：token、cookie、アカウントファイルを中央サービスや Ulanzi settings に送信しない。
@@ -37,7 +37,8 @@ Claude Code、Codex、Cursor、GitHub Copilot、Kiro、Antigravity、OpenCode Go
 | Provider | Actions | データソース | 状態 |
 | --- | --- | --- | --- |
 | Claude Code | 5h、7d | Claude Code OAuth usage API とローカル credential store | Stable |
-| Codex | 5h、7d | 公式 `codex app-server` `account/rateLimits/read` | Stable |
+| Codex | 5h、7d、GPT-5.3-Codex-Spark 5h/weekly | 公式 Codex app-server limits と model-specific rateLimitsByLimitId | 対応 bucket が返る場合は Stable |
+| Grok | 共通 weekly pool、GrokBuild | 公式 Grok CLI billing endpoint とローカル CLI 認証 | Experimental；grok login が必要 |
 | Kiro | Credit usage | AWS Kiro usage API と AWS SSO cache | Stable；profile ARN が必要 |
 | OpenCode Go | 5h、7d、月次 | Console server dashboard、helper cache を fallback | Stable；ローカル設定が必要 |
 | Cursor | Billing cycle | Cursor dashboard の read-only endpoint | Experimental |
@@ -164,6 +165,10 @@ codex login
 ```
 
 plugin は `codex app-server` を起動し、公式 rate-limit window を読み取ります。PATH にない場合は `CODEX_BIN` または `CODEX_APP_SERVER_JS` を設定します。
+
+### Grok
+
+Grok action を使う前に grok login を実行してください。Grok Weekly Usage は共通 weekly pool、GrokBuild Usage はその中の製品使用量を表示します。
 
 ### Kiro
 

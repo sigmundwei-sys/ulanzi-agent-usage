@@ -1,7 +1,7 @@
 {
   "UUID": "com.ulanzi.ulanzistudio.agentusage",
   "Name": "Ulanzi Agent Usage",
-  "Description": "Monitor Claude, Codex, Cursor, Copilot, Kiro, Antigravity, and OpenCode usage on your Ulanzi Deck. Provider credentials stay on your machine and each adapter can be configured independently.",
+  "Description": "Monitor Claude, Codex, Cursor, Copilot, Kiro, Antigravity, Grok, and OpenCode usage on your Ulanzi Deck. Provider credentials stay on your machine and each adapter can be configured independently.",
   "Author": "Ulanzi Agent Usage contributors",
   "Version": "3.0.1",
   "Icon": "resources/icon.png",
@@ -65,6 +65,32 @@
       "Devices": []
     },
     {
+      "Name": "GPT 5.3 Codex Spark 5h",
+      "Tooltip": "Show the GPT-5.3-Codex-Spark 5-hour model-specific usage limit.",
+      "Icon": "resources/icon.png",
+      "PropertyInspectorPath": "property-inspector/provider-inspector.html",
+      "UUID": "com.ulanzi.ulanzistudio.agentusage.codex_spark_5h",
+      "States": [
+        { "Name": "Default", "Image": "resources/icon.png" }
+      ],
+      "SupportedInMultiActions": false,
+      "Controllers": ["Keypad"],
+      "Devices": []
+    },
+    {
+      "Name": "GPT 5.3 Codex Spark Weekly",
+      "Tooltip": "Show the GPT-5.3-Codex-Spark weekly model-specific usage limit.",
+      "Icon": "resources/icon.png",
+      "PropertyInspectorPath": "property-inspector/provider-inspector.html",
+      "UUID": "com.ulanzi.ulanzistudio.agentusage.codex_spark_7d",
+      "States": [
+        { "Name": "Default", "Image": "resources/icon.png" }
+      ],
+      "SupportedInMultiActions": false,
+      "Controllers": ["Keypad"],
+      "Devices": []
+    },
+    {
       "Name": "Cursor Usage",
       "Tooltip": "Cursor billing-cycle quota usage — experimental dashboard adapter.",
       "Icon": "resources/icon.png",
@@ -109,6 +135,32 @@
       "Icon": "resources/icon.png",
       "PropertyInspectorPath": "property-inspector/kiro-inspector.html",
       "UUID": "com.ulanzi.ulanzistudio.agentusage.kiro",
+      "States": [
+        { "Name": "Default", "Image": "resources/icon.png" }
+      ],
+      "SupportedInMultiActions": false,
+      "Controllers": ["Keypad"],
+      "Devices": []
+    },
+    {
+      "Name": "Grok Weekly Usage",
+      "Tooltip": "Show the shared Grok weekly usage pool.",
+      "Icon": "resources/icon.png",
+      "PropertyInspectorPath": "property-inspector/provider-inspector.html",
+      "UUID": "com.ulanzi.ulanzistudio.agentusage.grok_7d",
+      "States": [
+        { "Name": "Default", "Image": "resources/icon.png" }
+      ],
+      "SupportedInMultiActions": false,
+      "Controllers": ["Keypad"],
+      "Devices": []
+    },
+    {
+      "Name": "GrokBuild Usage",
+      "Tooltip": "Show the GrokBuild product usage within the weekly pool.",
+      "Icon": "resources/icon.png",
+      "PropertyInspectorPath": "property-inspector/provider-inspector.html",
+      "UUID": "com.ulanzi.ulanzistudio.agentusage.grok_build",
       "States": [
         { "Name": "Default", "Image": "resources/icon.png" }
       ],

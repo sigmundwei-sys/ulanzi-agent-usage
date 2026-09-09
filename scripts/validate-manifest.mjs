@@ -29,8 +29,8 @@ requirePath(manifest.Icon, 'plugin Icon');
 requirePath(manifest.CategoryIcon, 'category Icon');
 requirePath(manifest.CodePath, 'CodePath');
 
-if (!Array.isArray(manifest.Actions) || manifest.Actions.length !== 15) {
-  errors.push(`expected 15 actions, found ${manifest.Actions?.length ?? 0}`);
+if (!Array.isArray(manifest.Actions) || manifest.Actions.length !== 19) {
+  errors.push(`expected 19 actions, found ${manifest.Actions?.length ?? 0}`);
 }
 
 const actionIds = new Set();

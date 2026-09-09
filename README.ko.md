@@ -7,7 +7,7 @@
 
 [English](README.md) · [繁體中文](README.zh-TW.md) · [日本語](README.ja.md) · 한국어
 
-Claude Code, Codex, Cursor, GitHub Copilot, Kiro, Antigravity, OpenCode Go 등 AI 코딩 에이전트의 사용량을 Ulanzi Deck에 표시합니다.
+Claude Code, Codex, Cursor, GitHub Copilot, Kiro, Antigravity, Grok, OpenCode Go 등 AI 코딩 에이전트의 사용량을 Ulanzi Deck에 표시합니다.
 
 ![Ulanzi Agent Usage 애니메이션 미리보기](docs/showcase.gif)
 
@@ -20,11 +20,11 @@ Claude Code, Codex, Cursor, GitHub Copilot, Kiro, Antigravity, OpenCode Go 등 A
 이 이미지는 유지 관리자가 공유한 실제 Ulanzi D200H 화면입니다. 표시되는 provider,
 비율, 리셋 시간은 각 계정 상태에 따라 달라집니다.
 
-> 이 프로젝트는 독립 소프트웨어이며 Ulanzi, Anthropic, OpenAI, Cursor, GitHub, Amazon, Google, OpenCode의 공식 제품이 아닙니다.
+> 이 프로젝트는 독립 소프트웨어이며 Ulanzi, Anthropic, OpenAI, Cursor, GitHub, Amazon, Google, xAI, OpenCode의 공식 제품이 아닙니다.
 
 ## 주요 기능
 
-- **바로 사용할 수 있는 15개 action**: 5시간 rolling, weekly, monthly, credit, completion 구간.
+- **바로 사용할 수 있는 19개 action**: 5시간 rolling, weekly, monthly, credit, completion, product-specific 구간.
 - **계정 가져오기 경험**: `cockpit-tools`의 계정 관리 흐름에서 영감을 받았으며, provider별 공식 CLI, API, dashboard 또는 명시적으로 설정한 로컬 helper 사용.
 - **안전한 stale 표시**: 일시적인 조회 실패 시 마지막 성공 값을 유지하고 잘못된 `0%`를 표시하지 않음.
 - **로컬 우선 인증 정보**: token, cookie, 계정 파일을 중앙 서비스나 Ulanzi settings로 보내지 않음.
@@ -37,7 +37,8 @@ Claude Code, Codex, Cursor, GitHub Copilot, Kiro, Antigravity, OpenCode Go 등 A
 | Provider | Actions | 데이터 출처 | 상태 |
 | --- | --- | --- | --- |
 | Claude Code | 5h, 7d | Claude Code OAuth usage API 및 로컬 credential store | Stable |
-| Codex | 5h, 7d | 공식 `codex app-server` `account/rateLimits/read` | Stable |
+| Codex | 5h, 7d, GPT-5.3-Codex-Spark 5h/weekly | 공식 Codex app-server limits 및 model-specific rateLimitsByLimitId | bucket이 반환될 때 Stable |
+| Grok | shared weekly pool, GrokBuild | 공식 Grok CLI billing endpoint 및 로컬 CLI 인증 | Experimental; grok login 필요 |
 | Kiro | Credit usage | AWS Kiro usage API 및 AWS SSO cache | Stable; profile ARN 필요 |
 | OpenCode Go | 5h, 7d, 월간 | Console server dashboard, helper cache fallback | Stable; 로컬 설정 필요 |
 | Cursor | Billing cycle | Cursor dashboard read-only endpoint | Experimental |
@@ -164,6 +165,10 @@ codex login
 ```
 
 plugin은 `codex app-server`를 시작하고 공식 rate-limit window를 읽습니다. executable이 `PATH`에 없으면 `CODEX_BIN` 또는 `CODEX_APP_SERVER_JS`를 설정하세요.
+
+### Grok
+
+Grok action을 사용하기 전에 grok login을 실행하세요. Grok Weekly Usage는 shared weekly pool, GrokBuild Usage는 그 안의 제품 사용량을 표시합니다.
 
 ### Kiro
 

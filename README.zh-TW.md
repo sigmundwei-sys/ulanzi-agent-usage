@@ -7,7 +7,7 @@
 
 [English](README.md) · 繁體中文 · [日本語](README.ja.md) · [한국어](README.ko.md)
 
-把 AI coding agent 的配額直接顯示在 Ulanzi Deck 上：Claude Code、Codex、Cursor、GitHub Copilot、Kiro、Antigravity 與 OpenCode Go。
+把 AI coding agent 的配額直接顯示在 Ulanzi Deck 上：Claude Code、Codex、Cursor、GitHub Copilot、Kiro、Antigravity、Grok 與 OpenCode Go。
 
 ![Ulanzi Agent Usage 動態預覽](docs/showcase.gif)
 
@@ -20,11 +20,11 @@
 這是維護者提供的 Ulanzi D200H 實際畫面。每位使用者看到的 provider、百分比
 與重置時間會依自己的帳號狀態而不同。
 
-> 本專案是獨立軟體，不是 Ulanzi、Anthropic、OpenAI、Cursor、GitHub、Amazon、Google 或 OpenCode 的官方產品。
+> 本專案是獨立軟體，不是 Ulanzi、Anthropic、OpenAI、Cursor、GitHub、Amazon、Google、xAI 或 OpenCode 的官方產品。
 
 ## 特色
 
-- **15 個可直接使用的 action**：rolling 5 小時、weekly、monthly、credit 與 completion 視窗。
+- **19 個可直接使用的 action**：rolling 5 小時、weekly、monthly、credit、completion 與產品細分視窗。
 - **帳號匯入體驗受到 cockpit-tools 啟發**：每個 provider 使用自己的官方 CLI、API、dashboard 或明確設定的本機 helper。
 - **故障保護顯示**：provider 暫時失敗時保留最後成功值並顯示 stale，不會誤顯示 `0%`。
 - **本機優先的憑證界線**：token、cookie、帳號檔只留在使用者電腦，不會送到中央服務或寫進 Ulanzi settings。
@@ -37,7 +37,8 @@
 | Provider | Actions | 資料來源 | 狀態 |
 | --- | --- | --- | --- |
 | Claude Code | 5h、7d | Claude Code OAuth usage API 與本機 credential store | 穩定 |
-| Codex | 5h、7d | 官方 `codex app-server` `account/rateLimits/read` | 穩定 |
+| Codex | 5 小時、7 天、GPT-5.3-Codex-Spark 5 小時／每週 | 官方 Codex app-server limits 與 model-specific rateLimitsByLimitId | 有對應 bucket 時穩定 |
+| Grok | 共用每週用量、GrokBuild | 官方 Grok CLI billing endpoint，使用本機 CLI 登入狀態 | 實驗性；需要先執行 grok login |
 | Kiro | Credit usage | AWS Kiro usage API 與 AWS SSO cache | 穩定；需要 profile ARN |
 | OpenCode Go | 5h、7d、本月 | Console server dashboard，helper cache 作 fallback | 穩定；需要本機設定 |
 | Cursor | Billing cycle | Cursor dashboard read-only endpoint | Experimental |
@@ -164,6 +165,10 @@ codex login
 ```
 
 plugin 會啟動 `codex app-server`，讀取官方 rate-limit window。若 executable 不在 `PATH`，可設定 `CODEX_BIN` 或 `CODEX_APP_SERVER_JS`。
+
+### Grok
+
+使用 Grok action 前先執行 grok login。Grok Weekly Usage 顯示共用的每週用量；GrokBuild Usage 顯示同一個每週池內的產品用量。
 
 ### Kiro
 

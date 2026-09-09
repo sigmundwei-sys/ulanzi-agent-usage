@@ -1,4 +1,4 @@
 {
   "Name": "Ulanzi Agent 使用量",
-  "Description": "Ulanzi Deck で Claude、Codex、Cursor、Copilot、Kiro、Antigravity、OpenCode の使用量を監視します。"
+  "Description": "Ulanzi Deck で Claude、Codex、Cursor、Copilot、Kiro、Antigravity、Grok、OpenCode の使用量を監視します。"
 }

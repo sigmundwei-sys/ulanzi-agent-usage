@@ -166,7 +166,7 @@ async function requestRateLimits() {
         if (message.error) {
           finish(new Error(message.error.message || 'Codex app-server returned an error'));
         } else {
-          finish(null, message.result?.rateLimits || null);
+          finish(null, message.result || null);
         }
       }
     });
@@ -202,6 +202,10 @@ function normalizeWindow(window) {
  * starting Codex or touching local credentials.
  */
 export function parseCodexRateLimits(rateLimits, window = 'hourly', now = Date.now()) {
+  return parseWindowSnapshot(rateLimits, window, now, 'codex-app-server');
+}
+
+function parseWindowSnapshot(rateLimits, window, now, source) {
   if (!rateLimits || typeof rateLimits !== 'object') return null;
   const target = TARGET_WINDOWS[normalizeWindow(window)];
   const candidates = [rateLimits.primary, rateLimits.secondary].filter(Boolean);
@@ -214,18 +218,45 @@ export function parseCodexRateLimits(rateLimits, window = 'hourly', now = Date.n
   const usedPercent = finiteNumber(selected.usedPercent);
   if (usedPercent === null) return null;
 
-  const resetAt = finiteNumber(selected.resetsAt);
+  const resetAt = finiteNumber(selected.resetsAt ?? selected.resetAt);
   return {
     util: Math.max(0, Math.min(1, usedPercent / 100)),
     reset: resetAt === null ? null : new Date(resetAt * 1000).toISOString(),
     updatedAt: Math.floor(now / 1000),
     staleSec: 0,
-    source: 'codex-app-server',
+    source,
     windowMinutes: finiteNumber(selected.windowDurationMins),
   };
 }
 
+function isSparkLimit(entry, key) {
+  const names = [
+    key,
+    entry?.limitId,
+    entry?.limit_id,
+    entry?.limitName,
+    entry?.limit_name,
+    entry?.name,
+  ]
+    .filter((value) => value != null)
+    .map((value) => String(value).toLowerCase().replace(/[^a-z0-9]/g, ''));
+  return names.some((name) => name.includes('codexspark') || name.includes('gpt53codexspark'));
+}
+
+export function parseCodexSparkRateLimits(response, window = 'hourly', now = Date.now()) {
+  const byLimitId = response?.rateLimitsByLimitId || response?.rate_limits_by_limit_id;
+  if (!byLimitId || typeof byLimitId !== 'object') return null;
+
+  const spark = Object.entries(byLimitId).find(([key, entry]) => isSparkLimit(entry, key))?.[1];
+  return spark ? parseWindowSnapshot(spark, window, now, 'codex-app-server-spark') : null;
+}
+
 export async function readCodexUsage(window = 'hourly') {
-  const rateLimits = await requestRateLimits();
-  return parseCodexRateLimits(rateLimits, window);
+  const response = await requestRateLimits();
+  return parseCodexRateLimits(response?.rateLimits || response, window);
+}
+
+export async function readCodexSparkUsage(window = 'hourly') {
+  const response = await requestRateLimits();
+  return parseCodexSparkRateLimits(response, window);
 }
