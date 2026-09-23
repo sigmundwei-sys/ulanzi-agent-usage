@@ -15,17 +15,19 @@ import http from 'node:http';
 import https from 'node:https';
 import os from 'node:os';
 import path from 'node:path';
-import { execFileSync, execFile as execFileCallback } from 'node:child_process';
+import { execFileSync, execFile as execFileCallback, spawn } from 'node:child_process';
 import { promisify } from 'node:util';
 import { expandPath, providerConfig } from './local-config.js';
 
 const execFile = promisify(execFileCallback);
 const CLI_TIMEOUT_MS = 15_000;
-const AGY_TIMEOUT_MS = 20_000;
+const AGY_BOOTSTRAP_TIMEOUT_MS = 3_000;
+const AGY_BOOTSTRAP_COOLDOWN_MS = 4 * 60 * 1000;
 const AGY_CACHE_MS = 4 * 60 * 1000;
 const SUMMARY_PATH = '/exa.language_server_pb.LanguageServerService/RetrieveUserQuotaSummary';
 
 let agySummaryCache = { key: null, value: null, expiresAt: 0, promise: null };
+let agyBootstrapState = { key: null, nextAllowedAt: 0, promise: null };
 
 function parseJsonOutput(stdout) {
   const text = String(stdout || '');
@@ -229,6 +231,70 @@ function resolveAgyBinary(config) {
   return configured || 'agy';
 }
 
+function terminateProcessTree(child) {
+  if (!child?.pid || child.exitCode !== null) return;
+  if (process.platform === 'win32') {
+    try {
+      execFileSync('taskkill.exe', ['/PID', String(child.pid), '/T', '/F'], {
+        windowsHide: true,
+        timeout: 3_000,
+        stdio: 'ignore',
+      });
+    } catch {
+      // The child may have exited between the timeout and taskkill.
+    }
+  }
+  try { child.kill('SIGTERM'); } catch {}
+}
+
+/**
+ * Start the local agy bootstrap command, but never leave a hung command behind.
+ * The production path uses ['models']; args/timeout are injectable for tests.
+ */
+export function runAgyBootstrap(binary, args = ['models'], timeoutMs = AGY_BOOTSTRAP_TIMEOUT_MS) {
+  return new Promise((resolve) => {
+    let child = null;
+    let timer = null;
+    let settled = false;
+    const finish = (timedOut) => {
+      if (settled) return;
+      settled = true;
+      if (timer) clearTimeout(timer);
+      resolve(timedOut);
+    };
+
+    try {
+      child = spawn(binary, args, { windowsHide: true, stdio: 'ignore' });
+      child.once('error', () => finish(false));
+      child.once('exit', () => finish(false));
+      timer = setTimeout(() => {
+        terminateProcessTree(child);
+        finish(true);
+      }, timeoutMs);
+    } catch {
+      finish(false);
+    }
+  });
+}
+
+function startAgyBootstrap(binary) {
+  const now = Date.now();
+  if (agyBootstrapState.key !== binary) {
+    agyBootstrapState = { key: binary, nextAllowedAt: 0, promise: null };
+  }
+  if (agyBootstrapState.promise || agyBootstrapState.nextAllowedAt > now) {
+    return agyBootstrapState.promise;
+  }
+
+  agyBootstrapState.nextAllowedAt = now + AGY_BOOTSTRAP_COOLDOWN_MS;
+  const promise = runAgyBootstrap(binary);
+  agyBootstrapState.promise = promise;
+  promise.finally(() => {
+    if (agyBootstrapState.promise === promise) agyBootstrapState.promise = null;
+  }).catch(() => {});
+  return promise;
+}
+
 function findRunningCandidatesWindows() {
   try {
     const script = `Get-CimInstance Win32_Process | Where-Object { $_.Name -match 'agy|language_server|antigravity' } | Select-Object ProcessId, CommandLine | ConvertTo-Json -Compress`;
@@ -391,13 +457,9 @@ async function fetchAgyQuotaSummary(config) {
       }
     }
 
-    // If no running daemon responded, trigger CLI to ensure background daemon starts if available
-    try {
-      execFileCallback(binary, ['models'], {
-        windowsHide: true,
-        stdio: 'ignore',
-      }, () => {});
-    } catch { /* Ignore spawn error */ }
+    // If no running daemon responded, trigger CLI once. A hung bootstrap is
+    // killed as a process tree so every failed poll cannot leak another agy.
+    const bootstrapPromise = startAgyBootstrap(binary);
 
     // Wait and re-scan for candidate processes that may have just started
     const deadline = Date.now() + 3_000;
@@ -419,6 +481,7 @@ async function fetchAgyQuotaSummary(config) {
         }
       }
     }
+    if (bootstrapPromise) await bootstrapPromise;
   }
 
   return null;
@@ -649,4 +712,3 @@ export async function readAntigravityUsage(metric, settings = {}) {
 
   throw new Error(`Antigravity helper returned no ${metric} quota`);
 }
-
