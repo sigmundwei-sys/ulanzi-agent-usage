@@ -58,6 +58,23 @@ function applyResult(inst, result) {
 
 // ── Claude 渲染 ────────────────────────────────────────────────────────────
 
+/**
+ * 顯示 lastGood（官方 API 與 cockpit 都失敗時）。若該視窗的 reset 時間已過，
+ * 舊用量已不屬於目前視窗 → 以 0% 呈現並保留 stale 標記，避免出現
+ * 「20% / Reset in now」這種過期數值。
+ */
+function renderStaleClaude(context, label, metric, data) {
+  let util  = metric === '7d' ? data.util7d  : data.util5h;
+  let reset = metric === '7d' ? data.reset7d : data.reset5h;
+  const resetMs = reset ? new Date(reset).getTime() : NaN;
+  if (Number.isFinite(resetMs) && resetMs <= Date.now()) {
+    util = 0;
+    reset = null;
+  }
+  const stale = data.fetchedAt ? Math.floor(Date.now() / 1000) - data.fetchedAt : null;
+  pushIcon(context, renderUsage({ label, util, reset: formatReset(reset), stale }));
+}
+
 function renderForInstance(inst) {
   if (inst.provider) {
     renderForProvider(inst);
@@ -100,11 +117,7 @@ function renderForInstance(inst) {
   if (lastResult.kind === ErrorKind.RATE_LIMITED) {
     const lastGood = inst.lastGood;
     if (lastGood) {
-      const data  = lastGood.data;
-      const util  = metric === '7d' ? data.util7d  : data.util5h;
-      const reset = metric === '7d' ? data.reset7d : data.reset5h;
-      const stale = Math.floor(Date.now() / 1000) - data.fetchedAt;
-      pushIcon(context, renderUsage({ label, util, reset: formatReset(reset), stale }));
+      renderStaleClaude(context, label, metric, lastGood.data);
     } else {
       pushIcon(context, renderLoading({ label }));
     }
@@ -113,11 +126,7 @@ function renderForInstance(inst) {
 
   const lastGood = inst.lastGood;
   if (lastGood) {
-    const data  = lastGood.data;
-    const util  = metric === '7d' ? data.util7d  : data.util5h;
-    const reset = metric === '7d' ? data.reset7d : data.reset5h;
-    const stale = Math.floor(Date.now() / 1000) - data.fetchedAt;
-    pushIcon(context, renderUsage({ label, util, reset: formatReset(reset), stale }));
+    renderStaleClaude(context, label, metric, lastGood.data);
     return;
   }
 

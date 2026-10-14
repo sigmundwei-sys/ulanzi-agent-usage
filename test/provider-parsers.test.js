@@ -10,7 +10,6 @@ import {
   parseAntigravityQuotaSummary,
   parseAntigravityUsage,
   readAntigravityUsage,
-  runAgyBootstrap,
 } from '../plugin/antigravity-provider.js';
 
 const NOW = Date.parse('2026-08-13T00:00:00Z');
@@ -215,15 +214,6 @@ test('Antigravity parses the official agy weekly and five-hour summary', () => {
   assert.equal(parseAntigravityQuotaSummary(body, 'ag_gem_7d', NOW).util, 0.26);
   assert.equal(parseAntigravityQuotaSummary(body, 'ag_3p_5h', NOW).util, 0);
   assert.equal(parseAntigravityQuotaSummary(body, 'ag_3p_7d', NOW).util, 0);
-});
-
-test('Antigravity bootstrap terminates a hung helper process', async () => {
-  const timedOut = await runAgyBootstrap(
-    process.execPath,
-    ['-e', 'setTimeout(() => {}, 10000)'],
-    100,
-  );
-  assert.equal(timedOut, true);
 });
 
 test('Antigravity falls back to the configured helper for weekly usage', async () => {

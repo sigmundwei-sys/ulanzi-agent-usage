@@ -19,6 +19,7 @@ import os from 'os';
 import fs from 'fs';
 import path from 'path';
 import https from 'https';
+import crypto from 'crypto';
 
 // ─── 常數 ───────────────────────────────────────────────────────────────────
 
@@ -256,6 +257,75 @@ function parseUsageApiBody(body) {
   }
 }
 
+// ─── cockpit-tools fallback ─────────────────────────────────────────────────
+// Anthropic 的 /api/oauth/usage 經常回 429（retry-after 可達 1 小時）。
+// cockpit-tools 會自行刷新 ~/.antigravity_cockpit/claude_accounts/*.json，
+// 官方 API 失敗時改讀該快取，避免 Ulanzi 停留在舊視窗的數值。
+
+const COCKPIT_MAX_AGE_SEC = 30 * 60;
+
+function decryptCockpitFile(raw, key) {
+  const parsed = JSON.parse(raw);
+  if (parsed?.algorithm !== 'AES-256-GCM' || !parsed.ciphertext) return parsed;
+  if (!key) return null;
+  const ct = Buffer.from(parsed.ciphertext, 'base64');
+  const decipher = crypto.createDecipheriv('aes-256-gcm', key, Buffer.from(parsed.nonce, 'base64'));
+  decipher.setAuthTag(ct.subarray(ct.length - 16));
+  return JSON.parse(Buffer.concat([decipher.update(ct.subarray(0, ct.length - 16)), decipher.final()]).toString('utf8'));
+}
+
+function toIso(value) {
+  if (!value) return null;
+  if (typeof value === 'number') return new Date(value * 1000).toISOString();
+  return String(value);
+}
+
+export function readCockpitClaudeUsage(now = Date.now()) {
+  try {
+    const root = path.join(os.homedir(), '.antigravity_cockpit');
+    const dir = path.join(root, 'claude_accounts');
+    if (!fs.existsSync(dir)) return null;
+    const keyPath = path.join(root, 'secure-account-storage.key');
+    const key = fs.existsSync(keyPath)
+      ? Buffer.from(fs.readFileSync(keyPath, 'utf8').trim(), 'base64')
+      : null;
+
+    let best = null;
+    for (const file of fs.readdirSync(dir)) {
+      if (!file.endsWith('.json')) continue;  // 不讀 .bak
+      try {
+        const account = decryptCockpitFile(fs.readFileSync(path.join(dir, file), 'utf8'), key);
+        const quota = account?.quota;
+        const updatedMs = Number(account?.usage_updated_at) || 0;
+        if (!quota || !updatedMs) continue;
+        const raw = quota.raw_data?.organizationUsage || quota.raw_data || {};
+        const util5h = typeof quota.five_hour_percentage === 'number' ? quota.five_hour_percentage / 100 : null;
+        const util7d = typeof quota.seven_day_percentage === 'number' ? quota.seven_day_percentage / 100 : null;
+        if (util5h === null && util7d === null) continue;
+        const candidate = {
+          util5h,
+          reset5h: raw.five_hour?.resets_at || toIso(quota.five_hour_reset_time),
+          util7d,
+          reset7d: raw.seven_day?.resets_at || toIso(quota.seven_day_reset_time),
+          fetchedAt: Math.floor(updatedMs / 1000),
+          source: 'cockpit-claude',
+        };
+        if (!best || candidate.fetchedAt > best.fetchedAt) best = candidate;
+      } catch { /* 單一帳號檔損壞不影響其他檔 */ }
+    }
+    if (!best) return null;
+    if (Math.floor(now / 1000) - best.fetchedAt > COCKPIT_MAX_AGE_SEC) return null;
+    return best;
+  } catch {
+    return null;
+  }
+}
+
+function withCockpitFallback(failure) {
+  const cockpit = readCockpitClaudeUsage();
+  return cockpit ? { ok: true, data: cockpit } : failure;
+}
+
 // ─── 主要 export ─────────────────────────────────────────────────────────────
 
 /**
@@ -273,10 +343,10 @@ export async function fetchUsage({ _retried } = {}) {
     return { ok: true, data: cached };
   }
 
-  // 2. Lock 防重送
+  // 2. Lock 防重送（429 後官方 API 會鎖最長約 1 小時，期間改讀 cockpit-tools）
   const lock = readLock();
   if (lock) {
-    return { ok: false, kind: ErrorKind.RATE_LIMITED, message: `locked until ${lock.blockedUntil}` };
+    return withCockpitFallback({ ok: false, kind: ErrorKind.RATE_LIMITED, message: `locked until ${lock.blockedUntil}` });
   }
 
   // 3. 取得 token
@@ -292,7 +362,7 @@ export async function fetchUsage({ _retried } = {}) {
     resp = await callUsageApi(token);
   } catch (e) {
     clearLock();
-    return { ok: false, kind: ErrorKind.NETWORK, message: e?.message || 'fetch failed' };
+    return withCockpitFallback({ ok: false, kind: ErrorKind.NETWORK, message: e?.message || 'fetch failed' });
   }
 
   if (resp.status === 401 || resp.status === 403) {
@@ -307,18 +377,18 @@ export async function fetchUsage({ _retried } = {}) {
   if (resp.status === 429) {
     const retryAfter = parseInt(resp.headers['retry-after'] || '300', 10);
     writeLock(retryAfter || 300, 'rate-limited');
-    return { ok: false, kind: ErrorKind.RATE_LIMITED, message: 'HTTP 429' };
+    return withCockpitFallback({ ok: false, kind: ErrorKind.RATE_LIMITED, message: 'HTTP 429' });
   }
 
   if (resp.status !== 200) {
     clearLock();
-    return { ok: false, kind: ErrorKind.UNKNOWN, message: `HTTP ${resp.status}` };
+    return withCockpitFallback({ ok: false, kind: ErrorKind.UNKNOWN, message: `HTTP ${resp.status}` });
   }
 
   const data = parseUsageApiBody(resp.body);
   if (!data || (data.util5h === null && data.util7d === null)) {
     clearLock();
-    return { ok: false, kind: ErrorKind.PARSE, message: 'usage headers missing' };
+    return withCockpitFallback({ ok: false, kind: ErrorKind.PARSE, message: 'usage headers missing' });
   }
 
   const result = { ...data, fetchedAt: Math.floor(Date.now() / 1000) };
