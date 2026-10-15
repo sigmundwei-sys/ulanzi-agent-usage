@@ -116,19 +116,51 @@ async function getToken() {
 const REFRESH_COOLDOWN_MS = 5 * 60 * 1000;
 let _lastRefreshAttempt = 0;
 
+function getClaudeCliCandidates() {
+  if (process.platform === 'win32') {
+    const appData = process.env.APPDATA || path.join(os.homedir(), 'AppData', 'Roaming');
+    const directExe = path.join(appData, 'npm', 'node_modules', '@anthropic-ai', 'claude-code', 'bin', 'claude.exe');
+    const npmCmd = path.join(appData, 'npm', 'claude.cmd');
+    return [directExe, npmCmd, 'claude.cmd', 'claude'].filter((c) => {
+      if (c.includes(path.sep)) return fs.existsSync(c);
+      return true;
+    });
+  }
+  const unixCandidates = ['/opt/homebrew/bin/claude', '/usr/local/bin/claude', 'claude'];
+  return unixCandidates.filter((c) => {
+    if (c.startsWith('/')) return fs.existsSync(c);
+    return true;
+  });
+}
+
 function attemptCliRefresh() {
-  if (process.platform !== 'darwin') return Promise.resolve(false);
   const now = Date.now();
   if (now - _lastRefreshAttempt < REFRESH_COOLDOWN_MS) return Promise.resolve(false);
   _lastRefreshAttempt = now;
+
+  const candidates = getClaudeCliCandidates();
+  if (!candidates.length) return Promise.resolve(false);
+
+  const bin = candidates[0];
+  const isWindowsScript = process.platform === 'win32' && /\.(cmd|bat)$/i.test(bin);
+  const file = isWindowsScript ? (process.env.ComSpec || 'cmd.exe') : bin;
+  const args = isWindowsScript
+    ? ['/d', '/s', '/c', `"${bin.replace(/"/g, '""')}" -p hi --max-budget-usd 0.01`]
+    : ['-p', 'hi', '--max-budget-usd', '0.01'];
+
   return new Promise((resolve) => {
-    const candidates = ['/opt/homebrew/bin/claude', '/usr/local/bin/claude', 'claude'];
-    const p = spawn(candidates[0], ['-p', 'hi', '--max-budget-usd', '0.01'], {
-      stdio: ['ignore', 'ignore', 'ignore'],
-      timeout: 20_000,
-    });
-    p.on('close', () => resolve(true));
-    p.on('error', () => resolve(false));
+    try {
+      const p = spawn(file, args, {
+        windowsHide: true,
+        stdio: ['ignore', 'ignore', 'ignore'],
+        timeout: 20_000,
+      });
+      // Even if exit code is 1 (e.g. budget limit reached), token refresh already completed
+      p.on('close', (code) => resolve(code === 0 || code === 1));
+      p.on('error', () => resolve(false));
+    } catch {
+      resolve(false);
+    }
   });
 }
 
